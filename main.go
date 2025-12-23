@@ -49,7 +49,7 @@ func setupEnvironment() {
 
 	// Database environment variables
 	envVars := map[string]string{
-		"DB_HOST":     "127.0.0.1",
+		"DB_HOST":     "141.11.160.141",
 		"DB_PORT":     "5434",
 		"DB_DATABASE": "sigesitlocal_db",
 		"DB_USERNAME": "admin",
