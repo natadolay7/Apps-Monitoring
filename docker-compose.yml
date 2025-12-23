@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  api:
+    build: .
+    container_name: api-patroliku
+    ports:
+      - "8282:8282"
+    environment:
+      PORT: 8282
+      GIN_MODE: release
+
+      DB_HOST: host.docker.internal
+      DB_PORT: 5434
+      DB_DATABASE: sigesitlocal_db
+      DB_USERNAME: admin
+      DB_PASSWORD: secret123
+
+    restart: unless-stopped
