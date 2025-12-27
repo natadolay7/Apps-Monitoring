@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"time"
@@ -24,154 +25,75 @@ func NewAttendanceHandler() *AttendanceHandler {
 
 // GetAttendanceByUserAndDate - GET /api/v1/attendance
 func (h *AttendanceHandler) GetAttendanceByUserAndDate(c *gin.Context) {
-	var req models.AttendanceRequest
+	userID := c.Query("user_id")
+	date := c.Query("date")
 
-	// Bind query parameters
-	if err := c.ShouldBindQuery(&req); err != nil {
+	if userID == "" || date == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "Parameter tidak valid",
-			"errors":  err.Error(),
+			"message": "user_id dan date wajib diisi",
 		})
 		return
 	}
 
-	// Validate date format
-	if _, err := time.Parse("2006-01-02", req.Date); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "Format tanggal harus YYYY-MM-DD",
-		})
-		return
-	}
+	var result models.AttendanceResponse
+	var scheduleID sql.NullInt64
 
-	// Gunakan raw query untuk menghindari scan error
-	var attendances []struct {
-		CheckIn   models.TimeString `gorm:"column:check_in"`
-		CheckOut  models.TimeString `gorm:"column:check_out"`
-		Name      string            `gorm:"column:name"`
-		Date      string            `gorm:"column:date"`
-		Latitude  float64           `gorm:"column:latitude"`
-		Longitude float64           `gorm:"column:longitude"`
-		Radius    float64           `gorm:"column:radius"`
-		BranchID  uint              `gorm:"column:branch_id"`
-	}
-
-	// Gunakan Raw SQL untuk kontrol penuh
-	sqlQuery := `
+	query := `
 		SELECT 
-			TO_CHAR(ss.start_time, 'HH24:MI') as check_in,
-			TO_CHAR(ss.end_time, 'HH24:MI') as check_out,
+			ss.start_time as check_in,
+			ss.end_time as check_out,
 			u.name,
-			TO_CHAR(s.date_check_in, 'YYYY-MM-DD') as date,
+			s.date_check_in as date,
 			b.latitude,
 			b.longitude,
 			b.radius,
-			b.id as branch_id
+			b.id as branch_id,
+			s.id as id_schedule
 		FROM schedule s 
 		LEFT JOIN schedule_shift ss ON s.schedule_shift_id = ss.id
 		LEFT JOIN users u ON s.users_id = u.id
 		LEFT JOIN user_tad_information uti ON u.id = uti.user_id
 		LEFT JOIN branch b ON b.id = uti.branch_id
-		WHERE s.users_id = ? AND s.date_check_in = ?::date
+		WHERE s.users_id = ?
+		  AND s.date_check_in = ?
 	`
 
-	if err := h.DB.Raw(sqlQuery, req.UserID, req.Date).Scan(&attendances).Error; err != nil {
+	row := h.DB.Raw(query, userID, date).Row()
+
+	err := row.Scan(
+		&result.CheckIn,
+		&result.CheckOut,
+		&result.Name,
+		&result.Date,
+		&result.Latitude,
+		&result.Longitude,
+		&result.Radius,
+		&result.BranchID,
+		&scheduleID,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "data tidak ditemukan",
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  "error",
-			"message": "Gagal mengambil data attendance",
+			"message": "gagal mengambil data",
 			"error":   err.Error(),
 		})
 		return
 	}
 
-	// Jika tidak ada data
-	if len(attendances) == 0 {
-		// Coba cari data user dan branch saja
-		var userInfo struct {
-			Name      string  `gorm:"column:name"`
-			Latitude  float64 `gorm:"column:latitude"`
-			Longitude float64 `gorm:"column:longitude"`
-			Radius    float64 `gorm:"column:radius"`
-			BranchID  uint    `gorm:"column:branch_id"`
-		}
-
-		userQuery := `
-			SELECT 
-				u.name,
-				b.latitude,
-				b.longitude,
-				b.radius,
-				b.id as branch_id
-			FROM users u
-			LEFT JOIN user_tad_information uti ON u.id = uti.user_id
-			LEFT JOIN branch b ON b.id = uti.branch_id
-			WHERE u.id = ?
-		`
-
-		if err := h.DB.Raw(userQuery, req.UserID).Scan(&userInfo).Error; err == nil && userInfo.Name != "" {
-			// Return data user dengan jadwal kosong
-			response := []models.AttendanceResponse{
-				{
-					CheckIn:   "",
-					CheckOut:  "",
-					Name:      userInfo.Name,
-					Date:      req.Date,
-					Latitude:  userInfo.Latitude,
-					Longitude: userInfo.Longitude,
-					Radius:    userInfo.Radius,
-					BranchID:  userInfo.BranchID,
-					UserID:    req.UserID,
-				},
-			}
-
-			c.JSON(http.StatusOK, gin.H{
-				"status":  "success",
-				"message": "Data ditemukan (tanpa jadwal)",
-				"data":    response,
-				"metadata": gin.H{
-					"user_id":      req.UserID,
-					"date":         req.Date,
-					"has_schedule": false,
-					"total":        1,
-				},
-			})
-			return
-		}
-
-		c.JSON(http.StatusNotFound, gin.H{
-			"status":  "error",
-			"message": "Data tidak ditemukan",
-		})
-		return
-	}
-
-	// Convert to response format
-	var response []models.AttendanceResponse
-	for _, att := range attendances {
-		response = append(response, models.AttendanceResponse{
-			CheckIn:   att.CheckIn,
-			CheckOut:  att.CheckOut,
-			Name:      att.Name,
-			Date:      att.Date,
-			Latitude:  att.Latitude,
-			Longitude: att.Longitude,
-			Radius:    att.Radius,
-			BranchID:  att.BranchID,
-			UserID:    req.UserID,
-		})
+	// Handle nullable schedule ID
+	if scheduleID.Valid {
+		result.ScheduleID = scheduleID.Int64
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"message": "Data attendance berhasil diambil",
-		"data":    response,
-		"metadata": gin.H{
-			"user_id":      req.UserID,
-			"date":         req.Date,
-			"has_schedule": true,
-			"total":        len(response),
-		},
+		"message": "success",
+		"data":    result,
 	})
 }
 

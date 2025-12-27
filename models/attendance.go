@@ -140,17 +140,18 @@ func (ts *TimeString) Scan(value interface{}) error {
 }
 
 // AttendanceResponse model untuk response absen
-type AttendanceResponse struct {
-	CheckIn   TimeString `json:"check_in"`
-	CheckOut  TimeString `json:"check_out"`
-	Name      string     `json:"name"`
-	Date      string     `json:"date"` // Format: YYYY-MM-DD
-	Latitude  float64    `json:"latitude"`
-	Longitude float64    `json:"longitude"`
-	Radius    float64    `json:"radius"`
-	BranchID  uint       `json:"branch_id"`
-	UserID    uint       `json:"user_id"`
-}
+// type AttendanceResponse struct {
+// 	CheckIn    TimeString `json:"check_in"`
+// 	CheckOut   TimeString `json:"check_out"`
+// 	Name       string     `json:"name"`
+// 	Date       string     `json:"date"` // Format: YYYY-MM-DD
+// 	Latitude   float64    `json:"latitude"`
+// 	Longitude  float64    `json:"longitude"`
+// 	Radius     float64    `json:"radius"`
+// 	BranchID   uint       `json:"branch_id"`
+// 	UserID     uint       `json:"user_id"`
+// 	IdSchedule uint       `json:"id_schedule"`
+// }
 
 // AttendanceRequest model untuk parameter request
 type AttendanceRequest struct {

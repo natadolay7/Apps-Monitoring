@@ -176,10 +176,14 @@ func (h *TaskHandler) GetTaskDetail(c *gin.Context) {
 			tt.name AS type,
 			ta.note,
 			ta.start_time,
-			ta.end_time
+			ta.end_time,
+			ta.end_time, 
+			te.before_photos, 
+			te.note  as note_pengerjaan
 		FROM task_assign ta 
 		LEFT JOIN task t ON ta.task_id = t.id 
 		LEFT JOIN task_type tt ON tt.id = t.task_type_id 
+		LEFT JOIN task_evidence te ON te.task_assign_id  = ta.id
 		WHERE ta.id = ? AND t.deleted_at IS NULL
 		LIMIT 1
 	`
