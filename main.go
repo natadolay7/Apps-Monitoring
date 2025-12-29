@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 
 	"api_patroliku_docker/database"
 	"api_patroliku_docker/routes"
@@ -36,6 +37,15 @@ func main() {
 
 	// Start server
 	startServer(router, port)
+}
+
+func InitTimezone() {
+	InitTimezone()
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		log.Fatal("Failed load timezone:", err)
+	}
+	time.Local = loc
 }
 
 func setupEnvironment() {

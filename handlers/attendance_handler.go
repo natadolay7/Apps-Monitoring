@@ -23,6 +23,117 @@ func NewAttendanceHandler() *AttendanceHandler {
 	}
 }
 
+func getCurrentDayNumber() int {
+	weekday := time.Now().Weekday()
+
+	// Sunday = 0 → 7
+	if weekday == time.Sunday {
+		return 7
+	}
+
+	return int(weekday)
+}
+
+type attendanceScan struct {
+	Shift        sql.NullString
+	CheckinTime  sql.NullString
+	CheckoutTime sql.NullString
+	BranchName   sql.NullString
+	Latitude     sql.NullFloat64
+	Longitude    sql.NullFloat64
+	Holiday      bool
+	IDShift      int `gorm:"column:id_shift"`
+	IDSchedule   int `gorm:"column:id_schedule"`
+}
+
+func (h *AttendanceHandler) GetAttendanceScheduleService(userID int) (*models.AttendanceTodayResponse, error) {
+	day := getCurrentDayNumber()
+
+	var rows []attendanceScan
+
+	err := h.DB.Table("schedule s").
+		Select(`
+			ss.name as shift,
+			ss.start_time as checkin_time,
+			ss.end_time as checkout_time,
+			b.name as branch_name,
+			b.latitude,
+			b.longitude,
+			s.holiday,
+			ss.id as id_shift,
+			s.id as id_schedule
+		`).
+		Joins("LEFT JOIN schedule_shift ss ON ss.id = s.schedule_shift_id").
+		Joins("LEFT JOIN users u ON u.id = s.users_id").
+		Joins("LEFT JOIN user_tad_information uti ON uti.user_id = u.id").
+		Joins("LEFT JOIN branch b ON uti.branch_id = b.id").
+		Where("s.users_id = ? AND s.day = ?", userID, day).
+		Scan(&rows).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// default response
+	response := &models.AttendanceTodayResponse{
+		Holiday:  false,
+		Schedule: nil,
+	}
+
+	if len(rows) == 0 {
+		return response, nil
+	}
+
+	// jika ada SATU data saja holiday = true
+	for _, r := range rows {
+		if r.Holiday {
+			response.Holiday = true
+			return response, nil
+		}
+	}
+
+	// ambil data pertama sebagai jadwal
+	r := rows[0]
+
+	response.Schedule = &models.ScheduleResponse{
+		IDShift:      r.IDShift,
+		IDSchedule:   r.IDSchedule,
+		Shift:        r.Shift.String,
+		CheckinTime:  r.CheckinTime.String,
+		CheckoutTime: r.CheckoutTime.String,
+		Branch: models.BranchResponse{
+			Name:      r.BranchName.String,
+			Latitude:  r.Latitude.Float64,
+			Longitude: r.Longitude.Float64,
+		},
+	}
+
+	return response, nil
+}
+
+func (h *AttendanceHandler) GetAttendanceSchedule(c *gin.Context) {
+	userIDParam := c.Param("user_id")
+
+	var userID int
+	_, err := fmt.Sscanf(userIDParam, "%d", &userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "user_id tidak valid",
+		})
+		return
+	}
+
+	data, err := h.GetAttendanceScheduleService(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, data)
+}
+
 // GetAttendanceByUserAndDate - GET /api/v1/attendance
 func (h *AttendanceHandler) GetAttendanceByUserAndDate(c *gin.Context) {
 	userID := c.Query("user_id")

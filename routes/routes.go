@@ -48,6 +48,8 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 			attendance := protected.Group("/attendance")
 			{
 				attendance.GET("", attendanceHandler.GetAttendanceByUserAndDate)
+				attendance.GET("schedule/:user_id", attendanceHandler.GetAttendanceSchedule)
+
 				attendance.POST("", attendanceHandler.SaveAttendance)
 				attendance.POST("/check-in", attendanceHandler.CheckIn)
 				attendance.POST("/check-out", attendanceHandler.CheckOut)
