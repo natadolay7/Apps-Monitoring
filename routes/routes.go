@@ -49,6 +49,7 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 			{
 				attendance.GET("", attendanceHandler.GetAttendanceByUserAndDate)
 				attendance.GET("schedule/:user_id", attendanceHandler.GetAttendanceSchedule)
+				attendance.POST("/:user_id/store", attendanceHandler.StoreAttendance)
 
 				attendance.POST("", attendanceHandler.SaveAttendance)
 				attendance.POST("/check-in", attendanceHandler.CheckIn)

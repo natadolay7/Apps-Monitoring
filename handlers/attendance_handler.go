@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -46,6 +47,7 @@ type attendanceScan struct {
 	IDSchedule   int `gorm:"column:id_schedule"`
 }
 
+// new
 func (h *AttendanceHandler) GetAttendanceScheduleService(userID int) (*models.AttendanceTodayResponse, error) {
 	day := getCurrentDayNumber()
 
@@ -133,6 +135,112 @@ func (h *AttendanceHandler) GetAttendanceSchedule(c *gin.Context) {
 
 	c.JSON(http.StatusOK, data)
 }
+
+func (h *AttendanceHandler) StoreAttendanceService(
+	userID uint,
+	req AttendanceStoreRequest,
+) error {
+
+	today := time.Now().In(time.Local).Truncate(24 * time.Hour)
+
+	var attendance models.UserAttendance
+
+	err := h.DB.
+		Where("users_id = ? AND date_attendence = ?", userID, today).
+		First(&attendance).Error
+
+	now := time.Now()
+
+	// =========================
+	// CHECK-IN
+	// =========================
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+
+		doc := models.JSONMap{
+			"check_in": req.Document,
+		}
+
+		attendance = models.UserAttendance{
+			UserID:           userID,
+			ScheduleID:       &req.ScheduleID,
+			DateAttendance:   today,
+			CheckIn:          &now,
+			LatitudeCheckIn:  req.Latitude,
+			LongitudeCheckIn: req.Longitude,
+			AttendanceStatus: 1,
+			DocumentsClock:   doc,
+		}
+
+		return h.DB.Create(&attendance).Error
+	}
+
+	if err != nil {
+		return err
+	}
+
+	// =========================
+	// CHECK-OUT
+	// =========================
+	if attendance.CheckOut == nil {
+
+		// update json document
+		doc := attendance.DocumentsClock
+		if doc == nil {
+			doc = models.JSONMap{}
+		}
+		doc["check_out"] = req.Document
+
+		return h.DB.Model(&attendance).Updates(map[string]interface{}{
+			"check_out":            now,
+			"latitude_check_out":   req.Latitude,
+			"longitude_check_out":  req.Longitude,
+			"attendence_status_id": 2,
+			"documents_clock_out":  doc,
+		}).Error
+	}
+
+	return errors.New("anda sudah check-in dan check-out hari ini")
+}
+
+func (h *AttendanceHandler) StoreAttendance(c *gin.Context) {
+	userIDParam := c.Param("user_id")
+
+	var userID int
+	if _, err := fmt.Sscanf(userIDParam, "%d", &userID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "user_id tidak valid",
+		})
+		return
+	}
+
+	var req AttendanceStoreRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": err.Error(),
+		})
+		return
+	}
+
+	if err := h.StoreAttendanceService(uint(userID), req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "attendance berhasil disimpan",
+	})
+}
+
+type AttendanceStoreRequest struct {
+	ScheduleID uint    `json:"schedule_id"`
+	Latitude   float64 `json:"latitude"`
+	Longitude  float64 `json:"longitude"`
+	Document   string  `json:"document"`
+}
+
+//endnew
 
 // GetAttendanceByUserAndDate - GET /api/v1/attendance
 func (h *AttendanceHandler) GetAttendanceByUserAndDate(c *gin.Context) {

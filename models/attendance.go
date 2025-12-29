@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // NullTime untuk handle nullable time
@@ -305,4 +307,26 @@ type CheckOutRequest struct {
 	LongitudeCheckOut float64 `json:"longitude_check_out" binding:"required"`
 	LatitudeCheckOut  float64 `json:"latitude_check_out" binding:"required"`
 	DocumentsClockOut string  `json:"documents_clock_out,omitempty"` // Foto/selfie saat check-out
+}
+
+type UserAttendanceNew struct {
+	ID                 int `gorm:"primaryKey"`
+	ScheduleID         int
+	UsersID            int
+	AttendanceStatusID int
+	CheckIn            *time.Time
+	CheckOut           *time.Time
+	DateAttendance     time.Time `gorm:"type:date"`
+
+	LatitudeCheckIn   *float64
+	LongitudeCheckIn  *float64
+	LatitudeCheckOut  *float64
+	LongitudeCheckOut *float64
+
+	DocumentsClockIn  *string
+	DocumentsClockOut *string
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt
 }
