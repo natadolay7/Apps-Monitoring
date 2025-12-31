@@ -60,7 +60,9 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 			// Task endpoints
 			taskGroup := protected.Group("/tasks")
 			{
-				taskGroup.GET("", taskHandler.GetTaskByUser)
+				// taskGroup.GET("", taskHandler.GetTaskByUser)
+				taskGroup.GET("", taskHandler.GetTask)
+
 				taskGroup.GET("/detail/:id", taskHandler.GetTaskDetail)
 			}
 

@@ -134,6 +134,100 @@ func (h *TaskHandler) GetTaskByUser(c *gin.Context) {
 	})
 }
 
+func (h *TaskHandler) GetTask(c *gin.Context) {
+
+	// ===== pagination =====
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+
+	// ===== total data =====
+	var total int64
+	countQuery := `
+		SELECT COUNT(*)
+		FROM task_assign ta 
+		LEFT JOIN task t ON ta.task_id = t.id 
+		LEFT JOIN task_type tt ON tt.id = t.task_type_id 
+		WHERE t.deleted_at IS NULL
+	`
+
+	if err := h.DB.Raw(countQuery).
+		Scan(&total).Error; err != nil {
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": "Gagal menghitung data",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// ===== data list =====
+	type TaskAssignResponse struct {
+		ID        int     `json:"id"`
+		Status    string  `json:"status"`
+		TitleTask string  `json:"title_task"`
+		Type      string  `json:"type"`
+		Note      *string `json:"note"`
+		StartTime *string `json:"start_time"`
+		EndTime   *string `json:"end_time"`
+	}
+
+	var taskAssigns []TaskAssignResponse
+
+	dataQuery := `
+		SELECT 
+			ta.id,
+			ta.status,
+			t.name AS title_task,
+			tt.name AS type,
+			ta.note,
+			ta.start_time,
+			ta.end_time
+		FROM task_assign ta 
+		LEFT JOIN task t ON ta.task_id = t.id 
+		LEFT JOIN task_type tt ON tt.id = t.task_type_id 
+		WHERE t.deleted_at IS NULL
+		ORDER BY ta.id DESC
+		LIMIT ? OFFSET ?
+	`
+
+	if err := h.DB.Raw(dataQuery, limit, offset).
+		Scan(&taskAssigns).Error; err != nil {
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": "Gagal mengambil task assign",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	totalPage := int(math.Ceil(float64(total) / float64(limit)))
+
+	// ===== response =====
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Task assign berhasil diambil",
+		"data":    taskAssigns,
+		"metadata": gin.H{
+			"page":       page,
+			"limit":      limit,
+			"total":      total,
+			"total_page": totalPage,
+			"has_data":   len(taskAssigns) > 0,
+		},
+	})
+}
+
 func (h *TaskHandler) GetTaskDetail(c *gin.Context) {
 	// ===== Get task_assign_id dari path parameter =====
 	taskAssignIDStr := c.Param("id")
