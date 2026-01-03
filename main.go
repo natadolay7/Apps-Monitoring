@@ -37,10 +37,11 @@ func main() {
 
 	// Start server
 	startServer(router, port)
+	InitTimezone()
 }
 
 func InitTimezone() {
-	InitTimezone()
+
 	loc, err := time.LoadLocation("Asia/Jakarta")
 	if err != nil {
 		log.Fatal("Failed load timezone:", err)
