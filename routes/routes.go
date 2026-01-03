@@ -24,6 +24,7 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 	authHandler := handlers.NewAuthHandler()
 
 	leaveHandler := handlers.NewLeaveHandler()
+	patroliHandler := handlers.NewMasterPatroliHandler()
 
 	// API Routes Group - Version 1
 	apiV1 := router.Group("/api/v1")
@@ -71,6 +72,14 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 			{
 				taskEvidenceGroup.POST("/upload", taskEvidence.UploadTaskEvidence)
 				// taskEvidenceGroup.POST("/after", taskEvidence.UploadAfterPhoto)
+			}
+
+			masterPatroli := protected.Group("/master-patroli")
+			{
+				masterPatroli.GET("/:id", patroliHandler.GetMasterPatroliByID)
+				masterPatroli.GET("/report", patroliHandler.ListPatroliReport)
+				masterPatroli.POST("/savepatroli", patroliHandler.StorePatroliReport)
+
 			}
 
 			// Auth protected endpoints (logout, profile)
