@@ -7,11 +7,13 @@ services:
     environment:
       PORT: 8282
       GIN_MODE: release
-
       DB_HOST: 141.11.160.141
       DB_PORT: 5434
       DB_DATABASE: sigesitlocal_db
       DB_USERNAME: admin
       DB_PASSWORD: secret123
-
+      TZ: Asia/Jakarta
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     restart: unless-stopped

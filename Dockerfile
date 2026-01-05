@@ -18,15 +18,19 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o app
 # =========================
 # Stage 2: Runtime
 # =========================
-FROM alpine:latest
+FROM alpine:3.19
 
-WORKDIR /app
+# Install timezone data
+RUN apk add --no-cache tzdata ca-certificates \
+ && cp /usr/share/zoneinfo/Asia/Jakarta /etc/localtime \
+ && echo "Asia/Jakarta" > /etc/timezone
 
-COPY --from=builder /app/app .
-
+ENV TZ=Asia/Jakarta
 ENV PORT=8282
 ENV GIN_MODE=release
 
-EXPOSE 8282
+WORKDIR /app
+COPY --from=builder /app/app .
 
+EXPOSE 8282
 CMD ["./app"]
