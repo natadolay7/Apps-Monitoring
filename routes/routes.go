@@ -25,6 +25,7 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 
 	leaveHandler := handlers.NewLeaveHandler()
 	patroliHandler := handlers.NewMasterPatroliHandler()
+	userAttHandler := handlers.NewUserAttendanceHandler()
 
 	// API Routes Group - Version 1
 	apiV1 := router.Group("/api/v1")
@@ -79,6 +80,12 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 				masterPatroli.GET("/:id", patroliHandler.GetMasterPatroliByID)
 				masterPatroli.GET("/report", patroliHandler.ListPatroliReport)
 				masterPatroli.POST("/savepatroli", patroliHandler.StorePatroliReport)
+
+			}
+
+			userAtt := protected.Group("/user-att")
+			{
+				userAtt.GET("/", userAttHandler.GetUserAttendanceToday)
 
 			}
 
