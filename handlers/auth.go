@@ -3,6 +3,8 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"api_patroliku_docker/config"
@@ -10,6 +12,7 @@ import (
 	"api_patroliku_docker/models"
 
 	"github.com/gin-gonic/gin"
+
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -249,5 +252,56 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		"status":  "success",
 		"message": "Profile berhasil diambil",
 		"data":    user,
+	})
+}
+
+func (h *AuthHandler) CheckTokenByUser(c *gin.Context) {
+	paramUserID := c.Param("user_id")
+	token := c.GetHeader("Authorization")
+
+	if token == "" {
+		c.JSON(400, gin.H{
+			"valid":   false,
+			"message": "Token tidak ditemukan",
+		})
+		return
+	}
+
+	token = strings.Replace(token, "Bearer ", "", 1)
+
+	claims, err := config.ValidateToken(token)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "expired") {
+			c.JSON(200, gin.H{
+				"valid":   false,
+				"expired": true,
+				"message": "Token sudah expired",
+			})
+			return
+		}
+
+		c.JSON(401, gin.H{
+			"valid":   false,
+			"message": "Token tidak valid",
+		})
+		return
+	}
+
+	// Cocokkan user_id dari parameter dengan JWT
+	if paramUserID != strconv.Itoa(claims.UserID) {
+		c.JSON(403, gin.H{
+			"valid":   false,
+			"message": "Token bukan milik user ini",
+		})
+		return
+	}
+
+	// Jika semua lolos
+	c.JSON(200, gin.H{
+		"valid":      true,
+		"expired":    false,
+		"user_id":    claims.UserID,
+		"expired_at": claims.ExpiresAt.Time,
 	})
 }

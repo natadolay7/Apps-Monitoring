@@ -17,7 +17,9 @@ type JWTClaims struct {
 }
 
 func GenerateToken(userID int, email, userType string, branchID int) (string, error) {
-	expirationTime := time.Now().Add(24 * time.Hour) // Token berlaku 24 jam
+	//expirationTime := time.Now().Add(24 * time.Hour) // Token berlaku 24 jam
+
+	expirationTime := time.Now().Add(1 * time.Minute) // Token berlaku 1 menit
 
 	claims := &JWTClaims{
 		UserID:   userID,

@@ -33,6 +33,7 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 		auth := apiV1.Group("/auth")
 		{
 			auth.POST("/login", authHandler.Login)
+			auth.GET("/check-token/:user_id", authHandler.CheckTokenByUser)
 		}
 
 		protected := apiV1.Group("/")
