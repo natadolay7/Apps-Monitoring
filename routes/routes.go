@@ -26,6 +26,7 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 	leaveHandler := handlers.NewLeaveHandler()
 	patroliHandler := handlers.NewMasterPatroliHandler()
 	userAttHandler := handlers.NewUserAttendanceHandler()
+	sosHandler := handlers.NewSOSHandler()
 
 	// API Routes Group - Version 1
 	apiV1 := router.Group("/api/v1")
@@ -45,6 +46,9 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 				users.GET("", userHandler.GetAllUsers)
 				users.GET("/:id", userHandler.GetUserByID)
 				users.POST("", userHandler.CreateUser)
+				users.POST("/updatefcm", userHandler.UpdateFCMToken)
+				users.POST("/fcm-test", userHandler.SendTestFCM)
+
 			}
 
 			// Attendance endpoints
@@ -58,6 +62,12 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 				attendance.POST("/check-in", attendanceHandler.CheckIn)
 				attendance.POST("/check-out", attendanceHandler.CheckOut)
 				attendance.GET("/today", attendanceHandler.GetTodayAttendance)
+			}
+
+			sos := protected.Group("/sos")
+			{
+				sos.POST("", sosHandler.SendSOS)
+
 			}
 
 			// Task endpoints

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "781428341412",
+    "project_id": "patrolikuapp12133505",
+    "storage_bucket": "patrolikuapp12133505.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:781428341412:android:1cec625dd0fb0546d08431",
+        "android_client_info": {
+          "package_name": "com.idns_patroli_app.app_patroliku"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB2Nn4xhwmQ7giBTDEzM9KonhcuEAzhGtE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -6,6 +6,7 @@ import (
 
 	"api_patroliku_docker/database"
 	"api_patroliku_docker/models"
+	"api_patroliku_docker/services"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -168,5 +169,73 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 			"name":       user.Name,
 			"created_at": user.CreatedAt,
 		},
+	})
+}
+
+type UpdateFCMRequest struct {
+	FCMToken string `json:"fcm_token" binding:"required"`
+}
+
+func (h *UserHandler) UpdateFCMToken(c *gin.Context) {
+	var input struct {
+		FCMToken string `json:"fcm_token" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "FCM token wajib diisi",
+		})
+		return
+	}
+
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":  "error",
+			"message": "User tidak terautentikasi",
+		})
+		return
+	}
+
+	result := h.DB.Model(&models.User{}).
+		Where("id = ?", userID).
+		Update("fcm_token", input.FCMToken)
+
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": "Gagal update FCM token",
+		})
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{
+			"status":  "error",
+			"message": "User tidak ditemukan",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "FCM token berhasil diperbarui",
+	})
+}
+
+func (h *UserHandler) SendTestFCM(c *gin.Context) {
+	err := services.SendHardcodeFCM()
+	if err != nil {
+		c.JSON(500, gin.H{
+			"status":  "error",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"status":  "success",
+		"message": "Notifikasi FCM berhasil dikirim",
 	})
 }

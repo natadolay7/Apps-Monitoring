@@ -7,6 +7,7 @@ type User struct {
 	Email    string `gorm:"size:255;uniqueIndex;not null"`
 	Password string `gorm:"size:255;not null"`
 	Name     string `gorm:"size:255"`
+	FCMToken string `gorm:"type:text"`
 }
 
 // LoginRequest untuk request login
