@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -45,7 +44,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		fmt.Println("USER ID FROM TOKEN:", claims.UserID)
+		// fmt.Println("USER ID FROM TOKEN:", claims.UserID)
 
 		// Set user data ke context
 		c.Set("userID", claims.UserID)

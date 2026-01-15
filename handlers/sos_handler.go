@@ -69,13 +69,14 @@ func (h *SOSHandler) SendSOS(c *gin.Context) {
 	// Ambil FCM token teman satu branch
 	type UserFCM struct {
 		ID       uint
+		Name     string
 		FCMToken string `gorm:"column:fcm_token"`
 	}
 
 	var users []UserFCM
 
 	h.DB.Raw(`
-		SELECT u.id, u.fcm_token
+		SELECT u.id, u.name, u.fcm_token
 		FROM users u
 		LEFT JOIN user_tad_information uti ON uti.user_id = u.id
 		WHERE uti.branch_id = ?
@@ -85,11 +86,21 @@ func (h *SOSHandler) SendSOS(c *gin.Context) {
 
 	fmt.Println("TOTAL TARGET FCM:", len(users))
 
+	type Sender struct {
+		Name string
+	}
+
+	var sender Sender
+
+	h.DB.Raw(`
+	SELECT name FROM users WHERE id = ?
+	`, userID).Scan(&sender)
+
 	for _, u := range users {
 		services.SendFCM(
 			u.FCMToken,
-			"🚨 SOS DARURAT",
-			"Ada petugas butuh bantuan!",
+			"🚨 SOS DARURAT "+sender.Name,
+			sender.Name+" butuh bantuan!",
 			map[string]string{
 				"type":      "sos",
 				"sender_id": fmt.Sprint(userID),
