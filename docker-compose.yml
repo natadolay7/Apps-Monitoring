@@ -5,6 +5,7 @@ services:
     ports:
       - "8282:8282"
     environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /app/service-account.json
       PORT: 8282
       GIN_MODE: release
       DB_HOST: 141.11.160.141
@@ -14,6 +15,7 @@ services:
       DB_PASSWORD: secret123
       TZ: Asia/Jakarta
     volumes:
+      - ./service-account.json:/app/service-account.json
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     restart: unless-stopped
