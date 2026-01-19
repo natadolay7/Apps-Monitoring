@@ -965,3 +965,135 @@ func (h *AttendanceHandler) parseTimeString(timeStr string, date time.Time) time
 		time.Local,
 	)
 }
+
+type AttendanceHistoryResponse struct {
+	ID             uint       `json:"id"`
+	UserID         uint       `json:"user_id"`
+	CheckIn        *time.Time `json:"check_in"`
+	CheckOut       *time.Time `json:"check_out"`
+	DateAttendance time.Time  `json:"date_attendance"`
+	Shift          string     `json:"shift"`
+	JadwalCheckIn  string     `json:"jadwal_checkin"`
+	JadwalCheckOut string     `json:"jadwal_checkout"`
+	Status         string     `json:"status"`        // TERLAMBAT / TEPAT WAKTU
+	LateDuration   string     `json:"late_duration"` // "1 jam 41 menit"
+}
+
+func (h *AttendanceHandler) GetAttendanceHistoryService(
+	userID int,
+	startDate string,
+	endDate string,
+) ([]AttendanceHistoryResponse, error) {
+
+	query := `
+		SELECT 
+			ua.id, 
+			u.id AS user_id,
+			ua.check_in, 
+			ua.check_out, 
+			ua.date_attendence,
+			ss.name AS shift,
+			ss.start_time AS jadwal_checkin,
+			ss.end_time AS jadwal_checkout
+		FROM user_attendence ua 
+		LEFT JOIN schedule s ON ua.schedule_id = s.id
+		LEFT JOIN schedule_shift ss ON s.schedule_shift_id = ss.id 
+		LEFT JOIN users u ON ua.users_id = u.id
+		WHERE u.id = ?
+		  AND ua.date_attendence BETWEEN ? AND ?
+		ORDER BY ua.date_attendence DESC
+	`
+
+	rows, err := h.DB.Raw(query, userID, startDate, endDate).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []AttendanceHistoryResponse
+
+	for rows.Next() {
+		var r AttendanceHistoryResponse
+		var jadwalCheckin string
+		var checkIn sql.NullTime
+
+		err := rows.Scan(
+			&r.ID,
+			&r.UserID,
+			&checkIn,
+			&r.CheckOut,
+			&r.DateAttendance,
+			&r.Shift,
+			&jadwalCheckin,
+			&r.JadwalCheckOut,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if checkIn.Valid {
+			r.CheckIn = &checkIn.Time
+
+			// ===============================
+			// HITUNG TERLAMBAT / TEPAT
+			// ===============================
+			jadwalTime, _ := time.Parse("15:04:05", jadwalCheckin)
+
+			jadwalFull := time.Date(
+				r.CheckIn.Year(),
+				r.CheckIn.Month(),
+				r.CheckIn.Day(),
+				jadwalTime.Hour(),
+				jadwalTime.Minute(),
+				0,
+				0,
+				time.Local,
+			)
+
+			if r.CheckIn.After(jadwalFull) {
+				r.Status = "TERLAMBAT"
+				duration := r.CheckIn.Sub(jadwalFull)
+
+				hours := int(duration.Hours())
+				minutes := int(duration.Minutes()) % 60
+
+				r.LateDuration = fmt.Sprintf("%d jam %d menit", hours, minutes)
+			} else {
+				r.Status = "TEPAT WAKTU"
+				r.LateDuration = "0 jam 0 menit"
+			}
+		}
+
+		r.JadwalCheckIn = jadwalCheckin
+		results = append(results, r)
+	}
+
+	return results, nil
+}
+
+func (h *AttendanceHandler) GetAttendanceHistory(c *gin.Context) {
+	userID := c.Query("user_id")
+	start := c.DefaultQuery("start_date", time.Now().AddDate(0, -1, 0).Format("2006-01-02"))
+	end := c.DefaultQuery("end_date", time.Now().Format("2006-01-02"))
+
+	var uid int
+	fmt.Sscanf(userID, "%d", &uid)
+
+	data, err := h.GetAttendanceHistoryService(uid, start, end)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "gagal ambil data",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "success",
+		"data":    data,
+		"filter": gin.H{
+			"start_date": start,
+			"end_date":   end,
+		},
+	})
+}

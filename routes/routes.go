@@ -28,6 +28,7 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 	userAttHandler := handlers.NewUserAttendanceHandler()
 	sosHandler := handlers.NewSOSHandler()
 	announcementsHandler := handlers.NewAnnouncementsHandler()
+	activityHandler := handlers.NewActivityHandler()
 
 	// API Routes Group - Version 1
 	apiV1 := router.Group("/api/v1")
@@ -68,12 +69,18 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 				attendance.POST("/check-in", attendanceHandler.CheckIn)
 				attendance.POST("/check-out", attendanceHandler.CheckOut)
 				attendance.GET("/today", attendanceHandler.GetTodayAttendance)
+
+				attendance.GET("/history", attendanceHandler.GetAttendanceHistory)
 			}
 
 			sos := protected.Group("/sos")
 			{
 				sos.POST("", sosHandler.SendSOS)
+			}
 
+			activity := protected.Group("/activity")
+			{
+				activity.POST("/store", activityHandler.StoreActivity)
 			}
 
 			// Task endpoints
