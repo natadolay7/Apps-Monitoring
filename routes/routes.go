@@ -27,6 +27,7 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 	patroliHandler := handlers.NewMasterPatroliHandler()
 	userAttHandler := handlers.NewUserAttendanceHandler()
 	sosHandler := handlers.NewSOSHandler()
+	announcementsHandler := handlers.NewAnnouncementsHandler()
 
 	// API Routes Group - Version 1
 	apiV1 := router.Group("/api/v1")
@@ -49,6 +50,11 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 				users.POST("/updatefcm", userHandler.UpdateFCMToken)
 				users.POST("/fcm-test", userHandler.SendTestFCM)
 
+			}
+
+			announcement := protected.Group("/announcements")
+			{
+				announcement.GET("", announcementsHandler.GetActiveAnnouncementsByBranch)
 			}
 
 			// Attendance endpoints
