@@ -81,6 +81,7 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 			activity := protected.Group("/activity")
 			{
 				activity.POST("/store", activityHandler.StoreActivity)
+				activity.GET("", activityHandler.GetActivityByUser)
 			}
 
 			// Task endpoints

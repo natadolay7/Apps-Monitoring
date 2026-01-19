@@ -28,24 +28,27 @@ func NewActivityHandler() *ActivityHandler {
 // ============================
 func (h *ActivityHandler) StoreActivity(c *gin.Context) {
 
-	tipeActive := c.PostForm("tipe_active")
-	judulActive := c.PostForm("judul_active")
-	timeActive := c.PostForm("time") // format: HH:mm
-	userIDStr := c.PostForm("user_id")
-
-	if tipeActive == "" || judulActive == "" || timeActive == "" || userIDStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
+	// Ambil user_id dari JWT middleware
+	userIDRaw, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
 			"error":   true,
-			"message": "Semua field wajib diisi",
+			"message": "User tidak terautentikasi",
 		})
 		return
 	}
+	userID := userIDRaw.(int)
 
-	userID, err := strconv.Atoi(userIDStr)
-	if err != nil {
+	// Ambil form data
+	tipeActive := c.PostForm("tipe_active")
+	judulActive := c.PostForm("judul_active")
+	deskripsi := c.PostForm("deskripsi")
+	timeActive := c.PostForm("time") // format: HH:mm:ss
+
+	if tipeActive == "" || judulActive == "" || timeActive == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   true,
-			"message": "user_id tidak valid",
+			"message": "tipe_active, judul_active, dan time wajib diisi",
 		})
 		return
 	}
@@ -71,15 +74,17 @@ func (h *ActivityHandler) StoreActivity(c *gin.Context) {
 			return
 		}
 
-		scheme := "http"
-		if c.Request.TLS != nil {
-			scheme = "https"
-		}
+		// scheme := "http"
+		// if c.Request.TLS != nil {
+		// 	scheme = "https"
+		// }
 
-		url := scheme + "://" + c.Request.Host + "/" + filePath
-		dokumenURL = &url
+		// url := scheme + "://" + c.Request.Host + "/" + filePath
+		relativePath := "/" + filePath
+		dokumenURL = &relativePath
 	}
 
+	// Gabungkan tanggal hari ini + jam dari input
 	today := time.Now().Format("2006-01-02")
 	fullTime := today + " " + timeActive
 
@@ -88,15 +93,16 @@ func (h *ActivityHandler) StoreActivity(c *gin.Context) {
 	// ============================
 	query := `
 		INSERT INTO activity 
-		(tipe_active, judul_active, time, dokumen_link, user_id, created_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+		(tipe_active, judul_active, deskripsi, time, dokumen_link, user_id, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 
 	if err := h.DB.Exec(
 		query,
 		tipeActive,
-		judulActive, // ⬅️ ini yang benar
-		fullTime,    // ⬅️ timestamp lengkap
+		judulActive,
+		deskripsi,
+		fullTime,
 		dokumenURL,
 		userID,
 		time.Now(),
@@ -118,9 +124,94 @@ func (h *ActivityHandler) StoreActivity(c *gin.Context) {
 		"data": gin.H{
 			"tipe_active":  tipeActive,
 			"judul_active": judulActive,
-			"time":         timeActive,
+			"deskripsi":    deskripsi,
+			"time":         fullTime,
 			"dokumen_link": dokumenURL,
 			"user_id":      userID,
 		},
+	})
+}
+
+func (h *ActivityHandler) GetActivityByUser(c *gin.Context) {
+
+	// Ambil user_id dari JWT middleware
+	userIDRaw, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   true,
+			"message": "User tidak terautentikasi",
+		})
+		return
+	}
+
+	userID := userIDRaw.(int)
+
+	// Ambil filter tanggal (optional)
+	date := c.Query("date") // format: YYYY-MM-DD
+
+	type ActivityResponse struct {
+		ID          int     `json:"id"`
+		TipeActive  string  `json:"tipe_active"`
+		JudulActive string  `json:"judul_active"`
+		Time        string  `json:"time"`
+		DokumenLink *string `json:"dokumen_link"`
+		Deskripsi   *string `json:"deskripsi"`
+		UserID      int     `json:"user_id"`
+		CreatedAt   string  `json:"created_at"`
+	}
+
+	var activities []ActivityResponse
+
+	query := `
+		SELECT 
+			id, 
+			tipe_active, 
+			judul_active, 
+			time, 
+			dokumen_link, 
+			user_id, 
+			deskripsi,
+			created_at
+		FROM activity
+		WHERE user_id = ?
+	`
+
+	params := []interface{}{userID}
+
+	if date != "" {
+		query += " AND DATE(created_at) = ?"
+		params = append(params, date)
+	}
+
+	query += " ORDER BY created_at DESC"
+
+	if err := h.DB.Raw(query, params...).Scan(&activities).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   true,
+			"message": "Gagal mengambil data activity",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// ============================
+	// Buat dokumen_link dinamis
+	// ============================
+	scheme := "http"
+	if c.Request.TLS != nil {
+		scheme = "https"
+	}
+	baseURL := scheme + "://" + c.Request.Host
+
+	for i := range activities {
+		if activities[i].DokumenLink != nil {
+			fullURL := baseURL + *activities[i].DokumenLink
+			activities[i].DokumenLink = &fullURL
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"error": false,
+		"data":  activities,
 	})
 }
