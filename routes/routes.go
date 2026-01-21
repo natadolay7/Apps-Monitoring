@@ -29,6 +29,7 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 	sosHandler := handlers.NewSOSHandler()
 	announcementsHandler := handlers.NewAnnouncementsHandler()
 	activityHandler := handlers.NewActivityHandler()
+	profileHandler := handlers.NewProfileHandler()
 
 	// API Routes Group - Version 1
 	apiV1 := router.Group("/api/v1")
@@ -111,6 +112,12 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 			userAtt := protected.Group("/user-att")
 			{
 				userAtt.GET("/", userAttHandler.GetUserAttendanceToday)
+
+			}
+
+			profile := protected.Group("/profile")
+			{
+				profile.POST("/store-update", profileHandler.StoreOrUpdateProfile)
 
 			}
 
