@@ -117,6 +117,8 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 
 			profile := protected.Group("/profile")
 			{
+				profile.GET("/", profileHandler.GetProfile)
+
 				profile.POST("/store-update", profileHandler.StoreOrUpdateProfile)
 
 			}

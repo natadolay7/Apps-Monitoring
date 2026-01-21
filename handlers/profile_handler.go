@@ -138,3 +138,76 @@ func (h *ProfileHandler) StoreOrUpdateProfile(c *gin.Context) {
 		})
 	}
 }
+
+// ============================
+// GET PROFILE BY user_id
+// ============================
+func (h *ProfileHandler) GetProfile(c *gin.Context) {
+
+	// Ambil user_id dari JWT
+	userIDRaw, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   true,
+			"message": "User tidak terautentikasi",
+		})
+		return
+	}
+	userID := userIDRaw.(int)
+
+	type ProfileResponse struct {
+		ID           int     `json:"id"`
+		UserID       int     `json:"user_id"`
+		NamaLengkap  string  `json:"nama_lengkap"`
+		TempatLahir  *string `json:"tempat_lahir"`
+		TanggalLahir *string `json:"tanggal_lahir"`
+		JenisKelamin *string `json:"jenis_kelamin"`
+		Alamat       *string `json:"alamat"`
+		NoHP         *string `json:"no_hp"`
+		Email        *string `json:"email"`
+		CreatedAt    *string `json:"created_at"`
+		UpdatedAt    *string `json:"updated_at"`
+	}
+
+	var profile ProfileResponse
+
+	query := `
+		SELECT 
+			id,
+			user_id,
+			nama_lengkap,
+			tempat_lahir,
+			tanggal_lahir,
+			jenis_kelamin,
+			alamat,
+			no_hp,
+			email,
+			created_at,
+			updated_at
+		FROM biodata
+		WHERE user_id = ?
+		LIMIT 1
+	`
+
+	if err := h.DB.Raw(query, userID).Scan(&profile).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   true,
+			"message": "Gagal mengambil profile",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	if profile.UserID == 0 {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error":   true,
+			"message": "Profile belum dibuat",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"error": false,
+		"data":  profile,
+	})
+}
