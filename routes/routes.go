@@ -30,6 +30,7 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 	announcementsHandler := handlers.NewAnnouncementsHandler()
 	activityHandler := handlers.NewActivityHandler()
 	profileHandler := handlers.NewProfileHandler()
+	sheduleHandler := handlers.NewScheduleHandler()
 
 	// API Routes Group - Version 1
 	apiV1 := router.Group("/api/v1")
@@ -85,6 +86,11 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 				activity.GET("", activityHandler.GetActivityByUser)
 			}
 
+			schedule := protected.Group("/schedule")
+			{
+				schedule.GET("", sheduleHandler.GetJadwalByUser)
+			}
+
 			// Task endpoints
 			taskGroup := protected.Group("/tasks")
 			{
@@ -118,9 +124,7 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 			profile := protected.Group("/profile")
 			{
 				profile.GET("/", profileHandler.GetProfile)
-
 				profile.POST("/store-update", profileHandler.StoreOrUpdateProfile)
-
 			}
 
 			// Auth protected endpoints (logout, profile)
