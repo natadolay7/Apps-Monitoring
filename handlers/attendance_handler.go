@@ -1013,58 +1013,102 @@ func (h *AttendanceHandler) GetAttendanceHistoryService(
 	var results []AttendanceHistoryResponse
 
 	for rows.Next() {
+
 		var r AttendanceHistoryResponse
-		var jadwalCheckin string
+
+		// ===== nullable fields =====
 		var checkIn sql.NullTime
+		var checkOut sql.NullTime
+		var shift sql.NullString
+		var jadwalCheckin sql.NullString
+		var jadwalCheckout sql.NullString
 
 		err := rows.Scan(
 			&r.ID,
 			&r.UserID,
 			&checkIn,
-			&r.CheckOut,
+			&checkOut,
 			&r.DateAttendance,
-			&r.Shift,
+			&shift,
 			&jadwalCheckin,
-			&r.JadwalCheckOut,
+			&jadwalCheckout,
 		)
 		if err != nil {
 			return nil, err
 		}
 
+		// ===============================
+		// CHECK-IN
+		// ===============================
 		if checkIn.Valid {
 			r.CheckIn = &checkIn.Time
+		}
 
-			// ===============================
-			// HITUNG TERLAMBAT / TEPAT
-			// ===============================
-			jadwalTime, _ := time.Parse("15:04:05", jadwalCheckin)
+		// ===============================
+		// CHECK-OUT
+		// ===============================
+		if checkOut.Valid {
+			r.CheckOut = &checkOut.Time
+		}
 
-			jadwalFull := time.Date(
-				r.CheckIn.Year(),
-				r.CheckIn.Month(),
-				r.CheckIn.Day(),
-				jadwalTime.Hour(),
-				jadwalTime.Minute(),
-				0,
-				0,
-				time.Local,
-			)
+		// ===============================
+		// SHIFT
+		// ===============================
+		if shift.Valid {
+			r.Shift = shift.String
+		} else {
+			r.Shift = "-"
+		}
 
-			if r.CheckIn.After(jadwalFull) {
-				r.Status = "TERLAMBAT"
-				duration := r.CheckIn.Sub(jadwalFull)
+		// ===============================
+		// JADWAL
+		// ===============================
+		if jadwalCheckin.Valid {
+			r.JadwalCheckIn = jadwalCheckin.String
+		} else {
+			r.JadwalCheckIn = "-"
+		}
 
-				hours := int(duration.Hours())
-				minutes := int(duration.Minutes()) % 60
+		if jadwalCheckout.Valid {
+			r.JadwalCheckOut = jadwalCheckout.String
+		} else {
+			r.JadwalCheckOut = "-"
+		}
 
-				r.LateDuration = fmt.Sprintf("%d jam %d menit", hours, minutes)
-			} else {
-				r.Status = "TEPAT WAKTU"
-				r.LateDuration = "0 jam 0 menit"
+		// ===============================
+		// HITUNG STATUS TERLAMBAT
+		// ===============================
+		if checkIn.Valid && jadwalCheckin.Valid {
+
+			jadwalTime, err := time.Parse("15:04:05", jadwalCheckin.String)
+			if err == nil {
+
+				jadwalFull := time.Date(
+					checkIn.Time.Year(),
+					checkIn.Time.Month(),
+					checkIn.Time.Day(),
+					jadwalTime.Hour(),
+					jadwalTime.Minute(),
+					0,
+					0,
+					time.Local,
+				)
+
+				if checkIn.Time.After(jadwalFull) {
+					r.Status = "TERLAMBAT"
+
+					duration := checkIn.Time.Sub(jadwalFull)
+					hours := int(duration.Hours())
+					minutes := int(duration.Minutes()) % 60
+
+					r.LateDuration = fmt.Sprintf("%d jam %d menit", hours, minutes)
+				} else {
+					r.Status = "TEPAT WAKTU"
+					r.LateDuration = "0 jam 0 menit"
+				}
 			}
 		}
 
-		r.JadwalCheckIn = jadwalCheckin
 		results = append(results, r)
 	}
 
@@ -1072,9 +1116,16 @@ func (h *AttendanceHandler) GetAttendanceHistoryService(
 }
 
 func (h *AttendanceHandler) GetAttendanceHistory(c *gin.Context) {
+
 	userID := c.Query("user_id")
-	start := c.DefaultQuery("start_date", time.Now().AddDate(0, -1, 0).Format("2006-01-02"))
-	end := c.DefaultQuery("end_date", time.Now().Format("2006-01-02"))
+	start := c.DefaultQuery(
+		"start_date",
+		time.Now().AddDate(0, -1, 0).Format("2006-01-02"),
+	)
+	end := c.DefaultQuery(
+		"end_date",
+		time.Now().Format("2006-01-02"),
+	)
 
 	var uid int
 	fmt.Sscanf(userID, "%d", &uid)
