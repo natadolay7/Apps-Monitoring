@@ -20,6 +20,7 @@ func NewLeaveHandler() *LeaveHandler {
 		DB: database.GetDB(),
 	}
 }
+
 func (h *LeaveHandler) SaveLeave(c *gin.Context) {
 	var req models.LeaveSaveRequest
 
@@ -141,4 +142,87 @@ func (h *LeaveHandler) SaveLeave(c *gin.Context) {
 type UserBranchCompany struct {
 	CompanyID uint `gorm:"column:company_id"`
 	BranchID  uint `gorm:"column:branch_id"`
+}
+
+func (h *LeaveHandler) GetLeaveBudget(c *gin.Context) {
+
+	// Ambil userID dari middleware
+	userIDValue, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":  "error",
+			"message": "User tidak ditemukan di token",
+		})
+		return
+	}
+
+	userID, ok := userIDValue.(int)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":  "error",
+			"message": "Format userID tidak valid",
+		})
+		return
+	}
+
+	year := time.Now().Year()
+
+	var result LeaveBudgetResponse
+
+	sql := `
+		SELECT 
+			u.id,
+			u.name,
+			u.email as username,
+			uti.branch_id,
+			uti.annual_leave_quota,
+			COALESCE(SUM(lr.total_days),0) as total_used,
+			(uti.annual_leave_quota - COALESCE(SUM(lr.total_days),0)) as remaining_leave
+		FROM users u
+		JOIN user_tad_information uti ON u.id = uti.user_id
+		LEFT JOIN leave_requests lr 
+			ON u.id = lr.user_id
+			AND lr.status = 'approved'
+			AND EXTRACT(YEAR FROM lr.start_date) = ?
+		WHERE u.id = ?
+		GROUP BY 
+			u.id,
+			u.name,
+			u.email,
+			uti.branch_id,
+			uti.annual_leave_quota
+	`
+
+	if err := h.DB.Raw(sql, year, userID).Scan(&result).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": "Gagal mengambil budget cuti",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	if result.UserID == 0 {
+		c.JSON(http.StatusNotFound, gin.H{
+			"status":  "error",
+			"message": "Data cuti tidak ditemukan",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Berhasil mengambil budget cuti",
+		"data":    result,
+	})
+}
+
+type LeaveBudgetResponse struct {
+	UserID           uint    `json:"user_id" gorm:"column:id"`
+	Name             string  `json:"name"`
+	Username         string  `json:"username" gorm:"column:username"`
+	BranchID         uint    `json:"branch_id"`
+	AnnualLeaveQuota int     `json:"annual_leave_quota"`
+	TotalUsed        float64 `json:"total_used"`
+	RemainingLeave   float64 `json:"remaining_leave"`
 }

@@ -1,14 +1,13 @@
 package main
 
 import (
+	"api_patroliku_docker/database"
+	"api_patroliku_docker/routes"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"time"
-
-	"api_patroliku_docker/database"
-	"api_patroliku_docker/routes"
 
 	"github.com/gin-gonic/gin"
 )
