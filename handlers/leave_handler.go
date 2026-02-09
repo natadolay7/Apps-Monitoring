@@ -226,3 +226,96 @@ type LeaveBudgetResponse struct {
 	TotalUsed        float64 `json:"total_used"`
 	RemainingLeave   float64 `json:"remaining_leave"`
 }
+
+type LeaveCreateRequest struct {
+	LeaveTypeID int    `json:"leave_type_id" binding:"required"`
+	StartDate   string `json:"start_date" binding:"required"` // YYYY-MM-DD
+	EndDate     string `json:"end_date" binding:"required"`
+	Reason      string `json:"reason"`
+}
+
+func (h *LeaveHandler) CreateLeave(c *gin.Context) {
+
+	var req LeaveCreateRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "Request tidak valid",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// ===== Ambil userID & branchID dari middleware =====
+	userIDValue, _ := c.Get("userID")
+	branchIDValue, _ := c.Get("branchID")
+
+	userID := userIDValue.(int)
+	branchID := branchIDValue.(int)
+
+	// ===== Parse tanggal =====
+	startDate, err := time.Parse("2006-01-02", req.StartDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "Format start_date harus YYYY-MM-DD",
+		})
+		return
+	}
+
+	endDate, err := time.Parse("2006-01-02", req.EndDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "Format end_date harus YYYY-MM-DD",
+		})
+		return
+	}
+
+	// ===== Validasi end_date tidak boleh sebelum start_date =====
+	if endDate.Before(startDate) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "end_date tidak boleh sebelum start_date",
+		})
+		return
+	}
+
+	// ===== Hitung total hari (inclusive) =====
+	totalDays := int(endDate.Sub(startDate).Hours()/24) + 1
+
+	leave := models.LeaveRequest{
+		UserID:      userID,
+		BranchID:    branchID,
+		LeaveTypeID: req.LeaveTypeID,
+		StartDate:   startDate,
+		EndDate:     endDate,
+		TotalDays:   totalDays,
+		Reason:      req.Reason,
+		Status:      "pending",
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	if err := h.DB.Create(&leave).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": "Gagal menyimpan leave",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"status":  "success",
+		"message": "Leave berhasil diajukan",
+		"data": gin.H{
+			"id":         leave.ID,
+			"start_date": leave.StartDate,
+			"end_date":   leave.EndDate,
+			"total_days": totalDays,
+			"status":     leave.Status,
+		},
+	})
+}

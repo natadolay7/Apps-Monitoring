@@ -136,7 +136,7 @@ func SetupRoutes(router *gin.Engine, port, hostname, localIP string, allIPs []st
 
 			leaveRoutes := protected.Group("/leave")
 			{
-				leaveRoutes.POST("/", leaveHandler.SaveLeave)
+				leaveRoutes.POST("/", leaveHandler.CreateLeave)
 				leaveRoutes.GET("/budget", leaveHandler.GetLeaveBudget)
 
 			}
